@@ -1,8 +1,9 @@
 requests
 numpy
+pandas
 scikit-learn
-librosa
 matplotlib
-fpdf
+fpdf2
+librosa
 soundfile
 pydub
