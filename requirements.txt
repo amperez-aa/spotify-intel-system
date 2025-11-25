@@ -1,0 +1,8 @@
+requests
+numpy
+scikit-learn
+librosa
+matplotlib
+fpdf
+soundfile
+pydub
