@@ -3,19 +3,25 @@ name: Spotify Full Intelligence Pipeline
 on:
   workflow_dispatch:
   schedule:
-    - cron: "0 */12 * * *"
+    - cron: '0 */12 * * *'
 
 jobs:
   full_pipeline:
     runs-on: ubuntu-latest
+    env:
+      SPOTIFY_CLIENT_ID: ${{ secrets.SPOTIFY_CLIENT_ID }}
+      SPOTIFY_CLIENT_SECRET: ${{ secrets.SPOTIFY_CLIENT_SECRET }}
+      SPOTIFY_REFRESH_TOKEN: ${{ secrets.SPOTIFY_REFRESH_TOKEN }}
+      SPOTIFY_INTEL_KEY: ${{ secrets.SPOTIFY_INTEL_KEY }}
+      PLAYLIST_ID: ${{ secrets.PLAYLIST_ID }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install system deps
+      - name: Install system packages
         run: |
-          sudo apt-get update
-          sudo apt-get install -y ffmpeg portaudio19-dev libsndfile1
+          sudo apt-get update -y
+          sudo apt-get install -y ffmpeg libsndfile1
 
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -25,33 +31,28 @@ jobs:
       - name: Install Python deps
         run: pip install -r requirements.txt
 
-      - name: Run pipeline
-        env:
-          SPOTIFY_CLIENT_ID: ${{ secrets.SPOTIFY_CLIENT_ID }}
-          SPOTIFY_CLIENT_SECRET: ${{ secrets.SPOTIFY_CLIENT_SECRET }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_PAT: ${{ secrets.GITHUB_PAT }}
+      - name: Run pipeline (robust)
         run: |
-          python scripts/fetch_playlist.py
-          python scripts/fetch_audio_features.py
-          python scripts/fetch_audio_analysis.py
-          python scripts/waveform_generator.py
-          python scripts/harmonic_engine.py
-          python scripts/cluster_tracks.py
-          python scripts/optimal_order.py
-          python scripts/beatgrid_and_cuts.py
-          python scripts/ai_mix_timeline.py
-          python scripts/mix_blueprint_pdf.py
+          python scripts/fetch_playlist.py || echo "playlist step failed"
+          python scripts/fetch_audio_features.py || echo "audio features step failed"
+          python scripts/fetch_audio_analysis.py || echo "audio analysis step failed"
+          python scripts/waveform_generator.py || echo "waveform step failed"
+          python scripts/harmonic_engine.py || echo "harmonic step failed"
+          python scripts/cluster_tracks.py || echo "clustering step failed"
+          python scripts/optimal_order.py || echo "optimal ordering step failed"
+          python scripts/beatgrid_and_cuts.py || echo "beatgrid step failed"
+          python scripts/ai_mix_timeline.py || echo "timeline step failed"
+          python scripts/mix_blueprint_pdf.py || echo "pdf step failed"
 
       - name: Commit outputs
         run: |
           git config user.email "github-actions@github.com"
           git config user.name "GitHub Actions"
           git add output || true
-          git commit -m "Auto-update intelligence outputs" || echo "No changes"
+          git commit -m "Auto-update intelligence outputs" || echo "No changes to commit"
           git push || echo "Push failed"
 
       - name: Create Snapshot PR (optional)
-        if: env.GITHUB_PAT != ''
+        if: env.SPOTIFY_INTEL_KEY != ''
         run: |
-          python scripts/create_snapshot_pr.py || echo "PR step failed or not configured"
+          python scripts/create_snapshot_pr.py || echo "PR creation failed"
